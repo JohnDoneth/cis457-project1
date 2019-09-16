@@ -17,7 +17,7 @@ def threaded_print(arg: str):
     print_lock.release()
 
 
-# thread fuction
+# thread function
 def threaded(c):
     while True:
         # data received from client
