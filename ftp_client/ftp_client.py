@@ -1,7 +1,5 @@
-
 # import socket programming library
 import socket
-import os
 import sys
 
 
@@ -12,9 +10,7 @@ def main():
     try:
         for line in sys.stdin:
             line = line.rstrip()
-
             print(line)
-
 
     except:
         s.close()
