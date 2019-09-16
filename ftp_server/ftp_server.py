@@ -1,6 +1,8 @@
 # import socket programming library
 import socket
 
+import struct
+
 # import thread module
 from _thread import *
 import threading
@@ -29,11 +31,9 @@ def threaded(c):
 
         if data.upper().startswith("LIST"):
 
-            response = ""
-
             files = [f for f in os.listdir('.') if os.path.isfile(f)]
-            for f in files:
-                response += f
+            response = ", ".join(files)
+            response += "\n"
 
             c.send(response.encode('utf-8'))
 
@@ -45,8 +45,15 @@ def threaded(c):
             with open(filename, "r") as myfile:
                 contents = myfile.read()
 
-                c.send(contents.encode("utf-8"))
+                encoded = contents.encode("utf-8")
 
+                msg = struct.pack('>I', len(encoded)) + encoded
+
+                c.send(msg)
+
+        elif data.upper().startswith("QUIT"):
+            threaded_print("a client has quit")
+            break
         else:
             c.send("Invalid command\n".encode("utf-8"))
 
