@@ -50,6 +50,28 @@ class FTPClient:
         except BrokenPipeError:
             require_connection()
 
+    def send_file(self, filename):
+        if self.sock is None:
+            require_connection()
+            return
+
+        try:
+            with open(filename, "r") as myfile:
+                contents = myfile.read()
+
+                encoded = contents.encode("utf-8")
+                size = struct.pack('>I', len(encoded))
+
+                buffer = f"STORE {filename} {size}".encode("utf-8") + encoded
+
+                try:
+                    self.sock.send(buffer)
+
+                except BrokenPipeError:
+                    require_connection()
+        except FileNotFoundError:
+            print("Error: No such file exists")
+
     def retrieve(self, filename):
         if self.sock is None:
             require_connection()
@@ -90,17 +112,38 @@ def main():
                 else:
                     client.connect((cmd[1], cmd[2]))
 
-            if cmd[0].upper() == "RETRIEVE":
+            elif cmd[0].upper() == "RETRIEVE":
                 if len(cmd) < 2:
                     print("RETRIEVE requires a parameter: <FILENAME>")
                 else:
                     client.retrieve(cmd[1])
 
-            if cmd[0].upper() == "LIST":
+            elif cmd[0].upper() == "STORE":
+                if len(cmd) < 2:
+                    print("STORE requires a parameter: <FILENAME>")
+                else:
+                    client.send_file(cmd[1])
+
+            elif cmd[0].upper() == "LIST":
                 client.list()
 
-    except:
-        client.disconnect()
+            elif cmd[0].upper() == "QUIT":
+                break
+
+            else:
+                print("Please enter a valid command.")
+                print("Valid commands are:")
+                print("\tCONNECT <IP> <PORT>")
+                print("\tRETRIEVE <FILENAME>")
+                print("\tSTORE <FILENAME>")
+                print("\tLIST")
+                print("\tQUIT")
+
+    except KeyboardInterrupt:
+        #client.disconnect()
+        pass
+
+    client.disconnect()
 
 
 if __name__ == '__main__':
