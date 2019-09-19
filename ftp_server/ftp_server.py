@@ -11,6 +11,7 @@ import os
 
 print_lock = threading.Lock()
 
+
 def threaded_print(arg: str):
     print_lock.acquire()
     print(arg)
@@ -50,6 +51,25 @@ def threaded(c):
                 msg = struct.pack('>I', len(encoded)) + encoded
 
                 c.send(msg)
+
+        elif data.upper().startswith("STORE"):
+            # threaded_print(data)
+
+
+            filename = data.split()[1]
+            header = data.split()[2].encode("utf-8")
+            print(header[:4])
+
+            len = struct.unpack(">I", header[:4])
+            print(len)
+
+            with open(filename, "w") as myfile:
+                pass
+
+
+                # encoded = contents.encode("utf-8")
+                # msg = struct.pack('>I', len(encoded)) + encoded
+                #c.send(msg)
 
         elif data.upper().startswith("QUIT"):
             threaded_print("a client has quit")

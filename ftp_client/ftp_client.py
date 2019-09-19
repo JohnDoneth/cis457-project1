@@ -98,6 +98,9 @@ class FTPClient:
 def main():
     client = FTPClient()
 
+    client.connect(("localhost", "12345"))
+    client.send_file("testfile.txt")
+
     try:
         for line in sys.stdin:
             line = line.rstrip()
