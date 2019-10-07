@@ -1,11 +1,36 @@
 import socket
 import sys
 import struct
-
+import json
 
 def require_connection():
     print("A connection must be established first. Use the CONNECT <IP> <PORT> command.")
 
+
+def recv_json(socket):
+    raw_length = socket.recv(4)
+    length = struct.unpack('>I', raw_length)[0]
+    
+    body = socket.recv(length)
+    body = body.decode("utf-8")
+    return json.loads(body)
+
+def send_json(socket, body): 
+    
+    # encode the data as stringified-json
+    encoded = json.dumps(body)
+    encoded = encoded.encode("utf-8")
+
+    # get the size of the encoded body
+    size = struct.pack('>I', len(encoded))
+   
+    print(size)
+
+    # write the size
+    socket.send(size)
+
+    # write the encoded body
+    socket.send(encoded)
 
 class FTPClient:
     sock = None
@@ -43,9 +68,19 @@ class FTPClient:
             return
 
         try:
-            self.sock.send("LIST".encode("utf-8"))
-            response = self.sock.recv(1024).decode("utf-8")
-            print(f"Files: {response}")
+            msg = {
+                "method": "LIST",
+            }
+
+            send_json(self.sock, msg)
+            #self.sock.send("LIST".encode("utf-8"))
+            #response = self.sock.recv(1024).decode("utf-8")
+            #print(f"Files: {response}")
+
+            response = recv_json(self.sock)
+
+            for filename in response.files:
+                print(filename)
 
         except BrokenPipeError:
             require_connection()
@@ -99,10 +134,11 @@ def main():
     client = FTPClient()
 
     client.connect(("localhost", "12345"))
-    client.send_file("testfile.txt")
+    #client.send_file("testfile.txt")
 
     try:
-        for line in sys.stdin:
+        while True:
+            line = input("> ")
             line = line.rstrip()
             cmd = line.split()
 
@@ -110,19 +146,19 @@ def main():
                 continue
 
             if cmd[0].upper() == "CONNECT":
-                if len(cmd) < 3:
+                if len(cmd) != 3:
                     print("CONNECT requires 2 parameters: <IP> <PORT>")
                 else:
                     client.connect((cmd[1], cmd[2]))
 
             elif cmd[0].upper() == "RETRIEVE":
-                if len(cmd) < 2:
+                if len(cmd) != 2:
                     print("RETRIEVE requires a parameter: <FILENAME>")
                 else:
                     client.retrieve(cmd[1])
 
             elif cmd[0].upper() == "STORE":
-                if len(cmd) < 2:
+                if len(cmd) != 2:
                     print("STORE requires a parameter: <FILENAME>")
                 else:
                     client.send_file(cmd[1])

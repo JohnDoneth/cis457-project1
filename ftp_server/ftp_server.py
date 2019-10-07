@@ -1,6 +1,8 @@
 # import socket programming library
 import socket
 
+import json
+
 import struct
 
 # import thread module
@@ -11,37 +13,73 @@ import os
 
 print_lock = threading.Lock()
 
-
 def threaded_print(arg: str):
     print_lock.acquire()
     print(arg)
     print_lock.release()
 
 
+def recv_json(socket):
+    raw_length = socket.recv(4)
+    length = struct.unpack('>I', raw_length)[0]
+    
+    body = socket.recv(length)
+    body = body.decode("utf-8")
+    return json.loads(body)
+
+def send_json(socket, body): 
+    
+    # encode the data as stringified-json
+    encoded = json.dumps(body)
+    encoded = encoded.encode("utf-8")
+
+    # get the size of the encoded body
+    size = struct.pack('>I', len(encoded))
+   
+    print(size)
+
+    # write the size
+    socket.send(size)
+
+    # write the encoded body
+    socket.send(encoded)
+
+
 # thread function
-def threaded(c):
+def threaded(client):
     while True:
         # data received from client
-        data = c.recv(1024)
-        if not data:
-            threaded_print("a client has disconnected")
-            break
+        # data = client.recv(1024)
+        #if not data:
+        #    threaded_print("a client has disconnected")
+        #    break
 
-        data = data.decode('utf-8')
-        print(data)
+        request = recv_json(client)
 
-        if data.upper().startswith("LIST"):
+        print(request)
+
+        #if not request.method:
+        #    print("Invalid request, missing method name")
+    
+        if request.method.upper().startswith("LIST"):
+            threaded_print("Processing LIST command")
 
             files = [f for f in os.listdir('.') if os.path.isfile(f)]
-            response = ", ".join(files)
-            response += "\n"
 
-            c.send(response.encode('utf-8'))
+            response = {
+                "files": files,
+            }
 
-        elif data.upper().startswith("RETRIEVE"):
-            # threaded_print(data)
+            send_json(socket, response)
+
+        elif request.method.upper().startswith("RETRIEVE"):
+            threaded_print("Processing RETRIEVE command")
 
             _, filename = data.split()
+
+            if os.path.exists(filename) == False:
+                client.send("file does not exist")
+                continue
 
             with open(filename, "r") as myfile:
                 contents = myfile.read()
@@ -50,11 +88,10 @@ def threaded(c):
 
                 msg = struct.pack('>I', len(encoded)) + encoded
 
-                c.send(msg)
+                client.send(msg)
 
-        elif data.upper().startswith("STORE"):
-            # threaded_print(data)
-
+        elif request.method.upper().startswith("STORE"):
+            threaded_print("Processing STORE command")
 
             filename = data.split()[1]
             header = data.split()[2].encode("utf-8")
@@ -66,16 +103,25 @@ def threaded(c):
             with open(filename, "w") as myfile:
                 pass
 
+                
+            with open(filename, "r") as myfile:
+                contents = myfile.read()
+
+                encoded = contents.encode("utf-8")
+
+                msg = struct.pack('>I', len(encoded)) + encoded
+
+                client.send(msg)
 
                 # encoded = contents.encode("utf-8")
                 # msg = struct.pack('>I', len(encoded)) + encoded
                 #c.send(msg)
 
-        elif data.upper().startswith("QUIT"):
+        elif request.method.upper().startswith("QUIT"):
             threaded_print("a client has quit")
             break
         else:
-            c.send("Invalid command\n".encode("utf-8"))
+            client.send("Invalid command\n".encode("utf-8"))
 
     c.close()
 
