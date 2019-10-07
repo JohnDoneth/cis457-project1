@@ -3,6 +3,7 @@ import sys
 import struct
 import json
 
+
 def require_connection():
     print("A connection must be established first. Use the CONNECT <IP> <PORT> command.")
 
@@ -10,27 +11,26 @@ def require_connection():
 def recv_json(socket):
     raw_length = socket.recv(4)
     length = struct.unpack('>I', raw_length)[0]
-    
+
     body = socket.recv(length)
     body = body.decode("utf-8")
     return json.loads(body)
 
-def send_json(socket, body): 
-    
+
+def send_json(socket, body):
     # encode the data as stringified-json
     encoded = json.dumps(body)
     encoded = encoded.encode("utf-8")
 
     # get the size of the encoded body
     size = struct.pack('>I', len(encoded))
-   
-    print(size)
 
     # write the size
     socket.send(size)
 
     # write the encoded body
     socket.send(encoded)
+
 
 class FTPClient:
     sock = None
@@ -73,9 +73,6 @@ class FTPClient:
             }
 
             send_json(self.sock, msg)
-            #self.sock.send("LIST".encode("utf-8"))
-            #response = self.sock.recv(1024).decode("utf-8")
-            #print(f"Files: {response}")
 
             response = recv_json(self.sock)
 
@@ -94,10 +91,6 @@ class FTPClient:
         try:
             with open(filename, "r") as myfile:
                 contents = myfile.read()
-
-                #encoded = contents.encode("utf-8")
-                #size = struct.pack('>I', len(encoded))
-                #buffer = f"STORE {filename} {size}".encode("utf-8") + encoded
 
                 msg = {
                     "method": "STORE",
@@ -119,18 +112,31 @@ class FTPClient:
             return
 
         try:
-            self.sock.send(f"RETRIEVE {filename}".encode("utf-8"))
-            raw_length = self.sock.recv(4)
-            length = struct.unpack('>I', raw_length)[0]
 
-            buffer = b""
-            while len(buffer) != length:
-                buffer += self.sock.recv(1024)
+            msg = {
+                "method": "RETRIEVE",
+                "filename": filename,
+            }
 
-            print(buffer.decode("utf-8"))
+            send_json(self.sock, msg)
+
+            response = recv_json(self.sock)
+
+            error = response["error"]
+
+            if error:
+                print(f"Failed to retrieve {filename}: {error}")
+                return
+
+            print(response["contents"])
 
         except BrokenPipeError:
             require_connection()
+
+    def quit(self):
+        send_json(self.sock, {
+            "method": "QUIT",
+        })
 
     def store(self):
         pass
@@ -140,7 +146,7 @@ def main():
     client = FTPClient()
 
     client.connect(("localhost", "12345"))
-    #client.send_file("testfile.txt")
+    # client.send_file("testfile.txt")
 
     try:
         while True:
@@ -173,6 +179,7 @@ def main():
                 client.list()
 
             elif cmd[0].upper() == "QUIT":
+                client.quit()
                 break
 
             else:
@@ -185,7 +192,7 @@ def main():
                 print("\tQUIT")
 
     except KeyboardInterrupt:
-        #client.disconnect()
+        # client.disconnect()
         pass
 
     client.disconnect()

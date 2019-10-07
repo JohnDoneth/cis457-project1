@@ -1,8 +1,6 @@
 # import socket programming library
 import socket
-
 import json
-
 import struct
 
 # import thread module
@@ -13,6 +11,7 @@ import os
 
 print_lock = threading.Lock()
 
+
 def threaded_print(arg: str):
     print_lock.acquire()
     print(arg)
@@ -22,21 +21,19 @@ def threaded_print(arg: str):
 def recv_json(socket):
     raw_length = socket.recv(4)
     length = struct.unpack('>I', raw_length)[0]
-    
+
     body = socket.recv(length)
     body = body.decode("utf-8")
     return json.loads(body)
 
-def send_json(socket, body): 
-    
+
+def send_json(socket, body):
     # encode the data as stringified-json
     encoded = json.dumps(body)
     encoded = encoded.encode("utf-8")
 
     # get the size of the encoded body
     size = struct.pack('>I', len(encoded))
-   
-    print(size)
 
     # write the size
     socket.send(size)
@@ -50,7 +47,7 @@ def threaded(client):
     while True:
         # data received from client
         # data = client.recv(1024)
-        #if not data:
+        # if not data:
         #    threaded_print("a client has disconnected")
         #    break
 
@@ -61,7 +58,7 @@ def threaded(client):
         if not request["method"]:
             print("Invalid Request: missing method field.")
             continue
-    
+
         if request["method"].upper().startswith("LIST"):
             threaded_print("Processing LIST command")
 
@@ -76,43 +73,30 @@ def threaded(client):
         elif request["method"].upper().startswith("RETRIEVE"):
             threaded_print("Processing RETRIEVE command")
 
-            _, filename = data.split()
+            filename = request["filename"]
 
             if os.path.exists(filename) == False:
-                client.send("file does not exist")
+                send_json(client, {
+                    "error": "file does not exist"
+                })
                 continue
 
             with open(filename, "r") as myfile:
                 contents = myfile.read()
 
-                encoded = contents.encode("utf-8")
-
-                msg = struct.pack('>I', len(encoded)) + encoded
-
-                client.send(msg)
+                send_json(client, {
+                    "filename": filename,
+                    "contents": contents
+                })
 
         elif request["method"].upper().startswith("STORE"):
             threaded_print("Processing STORE command")
 
-            #filename = data.split()[1]
-            #header = data.split()[2].encode("utf-8")
-            #print(header[:4])
-            #len = struct.unpack(">I", header[:4])
-            #print(len)
-
             filename = request["filename"]
 
-            with open(filename, "w") as myfile:
-                
-                myfile.write(request["contents"])
+            with open(filename, "w") as outfile:
+                outfile.write(request["contents"])
 
-                #encoded = contents.encode("utf-8")
-                #msg = struct.pack('>I', len(encoded)) + encoded
-                #client.send(msg)
-
-                # encoded = contents.encode("utf-8")
-                # msg = struct.pack('>I', len(encoded)) + encoded
-                #c.send(msg)
 
         elif request["method"].upper().startswith("QUIT"):
             threaded_print("a client has quit")
