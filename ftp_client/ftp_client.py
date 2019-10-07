@@ -41,6 +41,7 @@ def column_print(columns):
     for row in columns:
         print("\t" + "".join(word.ljust(col_width) for word in row))
 
+
 class FTPClient:
     sock = None
 
