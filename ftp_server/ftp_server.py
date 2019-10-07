@@ -1,5 +1,6 @@
 # import socket programming library
 import base64
+import pprint
 import socket
 import json
 import struct
@@ -43,6 +44,12 @@ def send_json(socket, body):
     socket.send(encoded)
 
 
+def send_response(socket, body):
+    send_json(socket, body)
+
+    threaded_print("<- Sent Response")
+    threaded_print(json.dumps(body, indent=4, sort_keys=True))
+
 # thread function
 def threaded(client):
     while True:
@@ -53,26 +60,21 @@ def threaded(client):
             threaded_print("a client has disconnected")
             break
 
-        print(request)
+        threaded_print("-> Received Request:")
+        threaded_print(json.dumps(request, indent=4, sort_keys=True))
 
         if not request["method"]:
             print("Invalid Request: missing method field.")
             continue
 
         if request["method"].upper().startswith("LIST"):
-            threaded_print("Processing LIST command")
-
             files = [f for f in os.listdir('.') if os.path.isfile(f)]
 
-            response = {
+            send_response(client, {
                 "files": files,
-            }
-
-            send_json(client, response)
+            })
 
         elif request["method"].upper().startswith("RETRIEVE"):
-            threaded_print("Processing RETRIEVE command")
-
             filename = request["filename"]
 
             if not os.path.exists(filename):
@@ -81,17 +83,18 @@ def threaded(client):
                 })
                 continue
 
-            with open(filename, "r") as myfile:
+            with open(filename, "rb") as myfile:
                 contents = myfile.read()
 
-                send_json(client, {
+                # base64 encode the binary file
+                contents = base64.b64encode(contents).decode("utf-8")
+
+                send_response(client, {
                     "filename": filename,
                     "contents": contents
                 })
 
         elif request["method"].upper().startswith("STORE"):
-            threaded_print("Processing STORE command")
-
             filename = request["filename"]
 
             with open(filename, "wb") as outfile:
@@ -99,12 +102,16 @@ def threaded(client):
                 contents = base64.b64decode(request["contents"])
                 outfile.write(contents)
 
+            threaded_print("-> Store Complete")
+
 
         elif request["method"].upper().startswith("QUIT"):
-            threaded_print("a client has quit")
+            threaded_print("-X Client disconnected")
             break
         else:
-            client.send("Invalid command\n".encode("utf-8"))
+            send_response(client, {
+                "error": "Invalid command"
+            })
 
     client.close()
 
@@ -132,7 +139,7 @@ def main():
 
             # lock acquired by client
             # print_lock.acquire()
-            # print('Connected to :', addr[0], ':', addr[1])
+            threaded_print(f"Client connected from {addr[0]}:{addr[1]}")
 
             # Start a new thread and return its identifier
             start_new_thread(threaded, (c,))

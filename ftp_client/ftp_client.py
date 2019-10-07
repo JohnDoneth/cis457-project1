@@ -13,7 +13,10 @@ def recv_json(socket):
     raw_length = socket.recv(4)
     length = struct.unpack('>I', raw_length)[0]
 
-    body = socket.recv(length)
+    body = bytes()
+    while len(body) != length:
+        body += socket.recv(length)
+
     body = body.decode("utf-8")
     return json.loads(body)
 
@@ -96,14 +99,12 @@ class FTPClient:
             # base64 encode the binary file
             contents = base64.b64encode(contents).decode("utf-8")
 
-            msg = {
-                "method": "STORE",
-                "filename": filename,
-                "contents": contents,
-            }
-
             try:
-                send_json(self.sock, msg)
+                send_json(self.sock, {
+                    "method": "STORE",
+                    "filename": filename,
+                    "contents": contents,
+                })
 
                 print(f"Successfully sent {len(contents)} bytes to remote as {filename}")
 
@@ -129,15 +130,18 @@ class FTPClient:
             return
 
         contents = response["contents"]
+
+        with open(filename, "wb") as outfile:
+            # base64 decode from the request body
+            contents = base64.b64decode(contents)
+            outfile.write(contents)
+
         print(f"Successfully read {len(contents)} bytes from remote into {filename}")
 
     def quit(self):
         send_json(self.sock, {
             "method": "QUIT",
         })
-
-    def store(self):
-        pass
 
 
 def help():
@@ -149,10 +153,11 @@ def help():
     print("\tLIST")
     print("\tQUIT")
 
+
 def main():
     client = FTPClient()
 
-    client.connect(("localhost", "12345"))
+    # client.connect(("localhost", "12345"))
     # client.send_file("testfile.txt")
 
     try:
