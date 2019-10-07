@@ -10,6 +10,13 @@ import os
 
 print_lock = threading.Lock()
 
+# https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+def sizeof_fmt(num, suffix='B'):
+    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        if abs(num) < 1024.0:
+            return "%3.1f%s%s" % (num, unit, suffix)
+        num /= 1024.0
+    return "%.1f%s%s" % (num, 'Yi', suffix)
 
 def threaded_print(arg: str):
     print_lock.acquire()
@@ -69,6 +76,9 @@ def threaded(client):
 
         if request["method"].upper().startswith("LIST"):
             files = [f for f in os.listdir('.') if os.path.isfile(f)]
+            file_sizes = [sizeof_fmt(os.path.getsize(f)) for f in os.listdir('.') if os.path.isfile(f)]
+
+            files = list(zip(files, file_sizes))
 
             send_response(client, {
                 "files": files,
@@ -83,8 +93,8 @@ def threaded(client):
                 })
                 continue
 
-            with open(filename, "rb") as myfile:
-                contents = myfile.read()
+            with open(filename, "rb") as infile:
+                contents = infile.read()
 
                 # base64 encode the binary file
                 contents = base64.b64encode(contents).decode("utf-8")
@@ -106,7 +116,7 @@ def threaded(client):
 
 
         elif request["method"].upper().startswith("QUIT"):
-            threaded_print("-X Client disconnected")
+            threaded_print("-> Client disconnected via QUIT")
             break
         else:
             send_response(client, {

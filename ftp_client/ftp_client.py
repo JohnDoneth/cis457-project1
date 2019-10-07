@@ -36,6 +36,11 @@ def send_json(socket, body):
     socket.send(encoded)
 
 
+def column_print(columns):
+    col_width = max(len(word) for row in columns for word in row) + 2  # padding
+    for row in columns:
+        print("\t" + "".join(word.ljust(col_width) for word in row))
+
 class FTPClient:
     sock = None
 
@@ -52,18 +57,15 @@ class FTPClient:
         print(f"Successfully connected to {address[0]}:{address[1]}")
 
     def disconnect(self):
-        if self.sock is None:
-            require_connection()
-            return
-
-        try:
-            self.quit()
-        except BrokenPipeError:
-            # Ignore the exception saying the socket is already closed if it is.
-            # We just want to make sure.
-            pass
-        finally:
-            self.sock.close()
+        if self.sock:
+            try:
+                self.quit()
+            except BrokenPipeError:
+                # Ignore the exception saying the socket is already closed if it is.
+                # We just want to make sure.
+                pass
+            finally:
+                self.sock.close()
 
     def list(self):
         if self.sock is None:
@@ -78,8 +80,7 @@ class FTPClient:
             response = recv_json(self.sock)
 
             print("Files:")
-            for filename in response["files"]:
-                print(filename)
+            column_print(response["files"])
 
         except BrokenPipeError:
             require_connection()
@@ -106,7 +107,7 @@ class FTPClient:
                     "contents": contents,
                 })
 
-                print(f"Successfully sent {len(contents)} bytes to remote as {filename}")
+                print(f"Successfully transferred {len(contents)} bytes to remote as {filename}")
 
             except BrokenPipeError:
                 require_connection()
@@ -136,9 +137,12 @@ class FTPClient:
             contents = base64.b64decode(contents)
             outfile.write(contents)
 
-        print(f"Successfully read {len(contents)} bytes from remote into {filename}")
+        print(f"Successfully transferred {len(contents)} bytes from remote into {filename}")
 
     def quit(self):
+        if self.sock is None:
+            return
+
         send_json(self.sock, {
             "method": "QUIT",
         })
@@ -157,7 +161,7 @@ def help():
 def main():
     client = FTPClient()
 
-    # client.connect(("localhost", "12345"))
+    client.connect(("localhost", "12345"))
     # client.send_file("testfile.txt")
 
     try:
