@@ -48,6 +48,9 @@ class FTPClient:
         pass
 
     def connect(self, address):
+        if self.sock:
+            print("Already connected")
+            return
         try:
             self.sock = socket.create_connection(address)
         except Exception as e:
