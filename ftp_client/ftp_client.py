@@ -79,7 +79,8 @@ class FTPClient:
 
             response = recv_json(self.sock)
 
-            for filename in response.files:
+            print("Files:")
+            for filename in response["files"]:
                 print(filename)
 
         except BrokenPipeError:
@@ -94,13 +95,18 @@ class FTPClient:
             with open(filename, "r") as myfile:
                 contents = myfile.read()
 
-                encoded = contents.encode("utf-8")
-                size = struct.pack('>I', len(encoded))
+                #encoded = contents.encode("utf-8")
+                #size = struct.pack('>I', len(encoded))
+                #buffer = f"STORE {filename} {size}".encode("utf-8") + encoded
 
-                buffer = f"STORE {filename} {size}".encode("utf-8") + encoded
+                msg = {
+                    "method": "STORE",
+                    "filename": filename,
+                    "contents": contents,
+                }
 
                 try:
-                    self.sock.send(buffer)
+                    send_json(self.sock, msg)
 
                 except BrokenPipeError:
                     require_connection()

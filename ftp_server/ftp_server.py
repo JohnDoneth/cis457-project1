@@ -58,10 +58,11 @@ def threaded(client):
 
         print(request)
 
-        #if not request.method:
-        #    print("Invalid request, missing method name")
+        if not request["method"]:
+            print("Invalid Request: missing method field.")
+            continue
     
-        if request.method.upper().startswith("LIST"):
+        if request["method"].upper().startswith("LIST"):
             threaded_print("Processing LIST command")
 
             files = [f for f in os.listdir('.') if os.path.isfile(f)]
@@ -70,9 +71,9 @@ def threaded(client):
                 "files": files,
             }
 
-            send_json(socket, response)
+            send_json(client, response)
 
-        elif request.method.upper().startswith("RETRIEVE"):
+        elif request["method"].upper().startswith("RETRIEVE"):
             threaded_print("Processing RETRIEVE command")
 
             _, filename = data.split()
@@ -90,34 +91,30 @@ def threaded(client):
 
                 client.send(msg)
 
-        elif request.method.upper().startswith("STORE"):
+        elif request["method"].upper().startswith("STORE"):
             threaded_print("Processing STORE command")
 
-            filename = data.split()[1]
-            header = data.split()[2].encode("utf-8")
-            print(header[:4])
+            #filename = data.split()[1]
+            #header = data.split()[2].encode("utf-8")
+            #print(header[:4])
+            #len = struct.unpack(">I", header[:4])
+            #print(len)
 
-            len = struct.unpack(">I", header[:4])
-            print(len)
+            filename = request["filename"]
 
             with open(filename, "w") as myfile:
-                pass
-
                 
-            with open(filename, "r") as myfile:
-                contents = myfile.read()
+                myfile.write(request["contents"])
 
-                encoded = contents.encode("utf-8")
-
-                msg = struct.pack('>I', len(encoded)) + encoded
-
-                client.send(msg)
+                #encoded = contents.encode("utf-8")
+                #msg = struct.pack('>I', len(encoded)) + encoded
+                #client.send(msg)
 
                 # encoded = contents.encode("utf-8")
                 # msg = struct.pack('>I', len(encoded)) + encoded
                 #c.send(msg)
 
-        elif request.method.upper().startswith("QUIT"):
+        elif request["method"].upper().startswith("QUIT"):
             threaded_print("a client has quit")
             break
         else:
