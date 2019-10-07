@@ -1,22 +1,23 @@
 # import socket programming library
 import base64
-import pprint
-import socket
 import json
-import struct
-from _thread import *
-import threading
 import os
+import socket
+import struct
+import threading
+from _thread import *
 
 print_lock = threading.Lock()
 
+
 # https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
 def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+    for unit in ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Yi', suffix)
+
 
 def threaded_print(arg: str):
     print_lock.acquire()
@@ -56,6 +57,7 @@ def send_response(socket, body):
 
     threaded_print("<- Sent Response")
     threaded_print(json.dumps(body, indent=4, sort_keys=True))
+
 
 # thread function
 def threaded(client):
@@ -114,10 +116,10 @@ def threaded(client):
 
             threaded_print("-> Store Complete")
 
-
         elif request["method"].upper().startswith("QUIT"):
             threaded_print("-> Client disconnected via QUIT")
             break
+
         else:
             send_response(client, {
                 "error": "Invalid command"
