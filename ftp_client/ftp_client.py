@@ -1,7 +1,8 @@
-import socket
-import sys
-import struct
+import base64
 import json
+import os
+import socket
+import struct
 
 
 def require_connection():
@@ -39,7 +40,6 @@ class FTPClient:
         pass
 
     def connect(self, address):
-
         try:
             self.sock = socket.create_connection(address)
         except Exception as e:
@@ -54,7 +54,7 @@ class FTPClient:
             return
 
         try:
-            self.sock.send("QUIT".encode("utf-8"))
+            self.quit()
         except BrokenPipeError:
             # Ignore the exception saying the socket is already closed if it is.
             # We just want to make sure.
@@ -68,11 +68,9 @@ class FTPClient:
             return
 
         try:
-            msg = {
+            send_json(self.sock, {
                 "method": "LIST",
-            }
-
-            send_json(self.sock, msg)
+            })
 
             response = recv_json(self.sock)
 
@@ -88,50 +86,50 @@ class FTPClient:
             require_connection()
             return
 
-        try:
-            with open(filename, "r") as myfile:
-                contents = myfile.read()
-
-                msg = {
-                    "method": "STORE",
-                    "filename": filename,
-                    "contents": contents,
-                }
-
-                try:
-                    send_json(self.sock, msg)
-
-                except BrokenPipeError:
-                    require_connection()
-        except FileNotFoundError:
+        if not os.path.exists(filename):
             print("Error: No such file exists")
+            return
+
+        with open(filename, "rb") as infile:
+            contents = infile.read()
+
+            # base64 encode the binary file
+            contents = base64.b64encode(contents).decode("utf-8")
+
+            msg = {
+                "method": "STORE",
+                "filename": filename,
+                "contents": contents,
+            }
+
+            try:
+                send_json(self.sock, msg)
+
+                print(f"Successfully sent {len(contents)} bytes to remote as {filename}")
+
+            except BrokenPipeError:
+                require_connection()
 
     def retrieve(self, filename):
         if self.sock is None:
             require_connection()
             return
 
-        try:
+        send_json(self.sock, {
+            "method": "RETRIEVE",
+            "filename": filename,
+        })
 
-            msg = {
-                "method": "RETRIEVE",
-                "filename": filename,
-            }
+        response = recv_json(self.sock)
 
-            send_json(self.sock, msg)
+        error = response.get("error", None)
 
-            response = recv_json(self.sock)
+        if error:
+            print(f"Failed to retrieve {filename}: {error}")
+            return
 
-            error = response["error"]
-
-            if error:
-                print(f"Failed to retrieve {filename}: {error}")
-                return
-
-            print(response["contents"])
-
-        except BrokenPipeError:
-            require_connection()
+        contents = response["contents"]
+        print(f"Successfully read {len(contents)} bytes from remote into {filename}")
 
     def quit(self):
         send_json(self.sock, {
@@ -141,6 +139,15 @@ class FTPClient:
     def store(self):
         pass
 
+
+def help():
+    print("Please enter a valid command.")
+    print("Valid commands are:")
+    print("\tCONNECT <IP> <PORT>")
+    print("\tRETRIEVE <FILENAME>")
+    print("\tSTORE <FILENAME>")
+    print("\tLIST")
+    print("\tQUIT")
 
 def main():
     client = FTPClient()
@@ -165,13 +172,13 @@ def main():
 
             elif cmd[0].upper() == "RETRIEVE":
                 if len(cmd) != 2:
-                    print("RETRIEVE requires a parameter: <FILENAME>")
+                    print("RETRIEVE requires a single parameter: <FILENAME>")
                 else:
                     client.retrieve(cmd[1])
 
             elif cmd[0].upper() == "STORE":
                 if len(cmd) != 2:
-                    print("STORE requires a parameter: <FILENAME>")
+                    print("STORE requires a single parameter: <FILENAME>")
                 else:
                     client.send_file(cmd[1])
 
@@ -182,14 +189,12 @@ def main():
                 client.quit()
                 break
 
+            elif cmd[0].upper() == "HELP":
+                help()
+
             else:
-                print("Please enter a valid command.")
-                print("Valid commands are:")
-                print("\tCONNECT <IP> <PORT>")
-                print("\tRETRIEVE <FILENAME>")
-                print("\tSTORE <FILENAME>")
-                print("\tLIST")
-                print("\tQUIT")
+                help()
+
 
     except KeyboardInterrupt:
         # client.disconnect()

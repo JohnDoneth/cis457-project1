@@ -1,12 +1,10 @@
 # import socket programming library
+import base64
 import socket
 import json
 import struct
-
-# import thread module
 from _thread import *
 import threading
-
 import os
 
 print_lock = threading.Lock()
@@ -22,7 +20,10 @@ def recv_json(socket):
     raw_length = socket.recv(4)
     length = struct.unpack('>I', raw_length)[0]
 
-    body = socket.recv(length)
+    body = bytes()
+    while len(body) != length:
+        body += socket.recv(length)
+
     body = body.decode("utf-8")
     return json.loads(body)
 
@@ -45,13 +46,12 @@ def send_json(socket, body):
 # thread function
 def threaded(client):
     while True:
-        # data received from client
-        # data = client.recv(1024)
-        # if not data:
-        #    threaded_print("a client has disconnected")
-        #    break
 
         request = recv_json(client)
+
+        if request is None:
+            threaded_print("a client has disconnected")
+            break
 
         print(request)
 
@@ -75,7 +75,7 @@ def threaded(client):
 
             filename = request["filename"]
 
-            if os.path.exists(filename) == False:
+            if not os.path.exists(filename):
                 send_json(client, {
                     "error": "file does not exist"
                 })
@@ -94,8 +94,10 @@ def threaded(client):
 
             filename = request["filename"]
 
-            with open(filename, "w") as outfile:
-                outfile.write(request["contents"])
+            with open(filename, "wb") as outfile:
+                # base64 decode from the request body
+                contents = base64.b64decode(request["contents"])
+                outfile.write(contents)
 
 
         elif request["method"].upper().startswith("QUIT"):
@@ -104,7 +106,7 @@ def threaded(client):
         else:
             client.send("Invalid command\n".encode("utf-8"))
 
-    c.close()
+    client.close()
 
 
 def main():
@@ -116,11 +118,11 @@ def main():
     port = 12345
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((host, port))
-    print("socket bound to port", port)
+    print("FTP Server bound to port", port)
 
     # put the socket into listening mode
     s.listen(5)
-    print("socket is listening")
+    print("FTP Server is listening for connections")
 
     try:
         # a forever loop until client wants to exit
