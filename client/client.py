@@ -165,7 +165,7 @@ def help():
 def main():
     client = FTPClient()
 
-    client.connect(("localhost", "12345"))
+    # client.connect(("localhost", "12345"))
     # client.send_file("testfile.txt")
 
     try:
