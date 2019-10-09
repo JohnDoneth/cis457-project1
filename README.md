@@ -5,14 +5,12 @@ The project only uses standard Python libraries, so all that is required is a su
 ## Running the Client
 
 ```bash
-cd client
-python client.py
+python client/ftp_client.py
 ```
 
 ## Running the Server
 
 ```
-cd server
-python server.py
+python server/ftp_server.py
 ``` 
 
