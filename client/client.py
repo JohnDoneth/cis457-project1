@@ -83,8 +83,13 @@ class FTPClient:
 
             response = recv_json(self.sock)
 
-            print("Files:")
-            column_print(response["files"])
+            files = response["files"]
+
+            if len(files) == 0:
+                print("The server does not contain any files at the moment.")
+            else:
+                print("Files:")
+                column_print(response["files"])
 
         except BrokenPipeError:
             require_connection()
@@ -143,6 +148,26 @@ class FTPClient:
 
         print(f"Successfully transferred {len(contents)} bytes from remote into {filename}")
 
+
+    def delete_file(self, filename):
+        if self.sock is None:
+            require_connection()
+            return
+
+        send_json(self.sock, {
+            "method": "DELETE",
+            "filename": filename,
+        })
+
+        response = recv_json(self.sock)
+
+        error = response.get("error", None)
+
+        if error:
+            print(f"Failed to delete {filename}: {error}")
+            return
+
+
     def quit(self):
         if self.sock is None:
             return
@@ -158,6 +183,7 @@ def help():
     print("\tCONNECT <IP> <PORT>")
     print("\tRETRIEVE <FILENAME>")
     print("\tSTORE <FILENAME>")
+    print("\tDELETE <FILENAME>")
     print("\tLIST")
     print("\tQUIT")
 
@@ -194,6 +220,12 @@ def main():
                     print("STORE requires a single parameter: <FILENAME>")
                 else:
                     client.send_file(cmd[1])
+
+            elif cmd[0].upper() == "DELETE":
+                if len(cmd) != 2:
+                    print("DELETE requires a single parameter: <FILENAME>")
+                else:
+                    client.delete_file(cmd[1])
 
             elif cmd[0].upper() == "LIST":
                 client.list()

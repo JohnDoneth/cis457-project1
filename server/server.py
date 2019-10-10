@@ -59,6 +59,15 @@ def send_response(socket, body):
     threaded_print(json.dumps(body, indent=4, sort_keys=True))
 
 
+def filter_files(path):
+    _, extension = os.path.splitext(path[0])
+
+    if extension == ".py":
+        return False
+    else:
+        return True
+
+
 # thread function
 def threaded(client):
     while True:
@@ -81,6 +90,10 @@ def threaded(client):
             file_sizes = [sizeof_fmt(os.path.getsize(f)) for f in os.listdir('.') if os.path.isfile(f)]
 
             files = list(zip(files, file_sizes))
+
+            files = filter(filter_files, files)
+
+            files = list(files)
 
             send_response(client, {
                 "files": files,
@@ -120,9 +133,23 @@ def threaded(client):
             threaded_print("-> Client disconnected via QUIT")
             break
 
+        elif request["method"].upper().startswith("DELETE"):
+            
+            filename = request["filename"]
+
+            if not os.path.exists(filename):
+                send_json(client, {
+                    "error": "file does not exist"
+                })
+            else:
+                os.remove(filename)
+                send_json(client, {
+                    "success": "file removed"
+                })
+
         else:
             send_response(client, {
-                "error": "Invalid command"
+                "error": "Unsupported command"
             })
 
     client.close()
