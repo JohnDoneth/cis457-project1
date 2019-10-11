@@ -167,6 +167,9 @@ class FTPClient:
             print(f"Failed to delete {filename}: {error}")
             return
 
+        else:
+            print("File deleted")
+
 
     def quit(self):
         if self.sock is None:

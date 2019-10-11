@@ -55,7 +55,7 @@ def send_json(socket, body):
 def send_response(socket, body):
     send_json(socket, body)
 
-    threaded_print("<- Sent Response")
+    threaded_print("<- Sent Response:")
     threaded_print(json.dumps(body, indent=4, sort_keys=True))
 
 
@@ -103,7 +103,7 @@ def threaded(client):
             filename = request["filename"]
 
             if not os.path.exists(filename):
-                send_json(client, {
+                send_response(client, {
                     "error": "file does not exist"
                 })
                 continue
@@ -138,12 +138,12 @@ def threaded(client):
             filename = request["filename"]
 
             if not os.path.exists(filename):
-                send_json(client, {
+                send_response(client, {
                     "error": "file does not exist"
                 })
             else:
                 os.remove(filename)
-                send_json(client, {
+                send_response(client, {
                     "success": "file removed"
                 })
 
